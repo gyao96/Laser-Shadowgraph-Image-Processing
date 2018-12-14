@@ -128,6 +128,7 @@ class laser(object):
                 camera.release()
                 cv2.destroyAllWindows()
                 # Plot the Result
+                np.savetxt(name+'.txt', out_bubble_list)
                 ShowHisto(out_bubble_list)
                 clear()
         return filenames
@@ -179,7 +180,8 @@ class laser(object):
         for name in filenames:
             if name:
                 camera = cv2.VideoCapture(name)
-                ret, frame = camera.read()
+                for passindec in range(10):
+                    ret, frame = camera.read()
                 out_bubble_list = []
                 cv2.namedWindow('image')
                 cv2.setMouseCallback('image', draw_circle) # Mouse click recall function
@@ -234,6 +236,7 @@ def draw_circle(event, y, x, flags, param):
         drawing = False
         cv2.rectangle(frame, (iy,ix), (y, x), (0, 255, 0), -1)
         cord = (ix,iy),(x,y)
+        print('Window:'+str(cord)+' lenY:'+str(abs(iy-y))+' lenX:'+str(abs(ix-x)))
         winflag = True
 
 def backgroundseg(camera, window, count = False, show = True, pre = False):
@@ -363,12 +366,15 @@ def nooverlap(camera, window):
         return False, []
     frame = frame[window[0][0]:window[1][0], window[0][1]:window[1][1]]
     [height, width] = frame.shape[:2]
-    print([height, width])
     # Covert to Grayscale
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    gray = cv2.resize(gray,None,fx=8, fy=8, interpolation = cv2.INTER_LINEAR)
     # Grayscale Histograph Equalization
     gray = cv2.equalizeHist(gray)
     fgmask = bss.apply(gray)
+    # cv2.imwrite(str(i)+'frame.png',gray)
+    # cv2.imwrite(str(i)+'gray.png',gray)
+    # cv2.imwrite(str(i)+'fgmask.png',fgmask)
     # Discard Invalid Detection
     hist = cv2.calcHist([fgmask],[0],None,[256],[30,256])
     num_pixel_shadow = sum(hist[100:130])
@@ -387,10 +393,15 @@ def nooverlap(camera, window):
     if scat > 0.8:
         print("Frame "+str(i-1)+" Scattered "+str(scat))
         return True, []
-    # Distroy Small Noise
+    # Discard if too many contours
     th = cv2.threshold(fgmask, 200, 255, cv2.THRESH_BINARY)[1];
-    opened = cv2.morphologyEx(th, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3,3)))
-    dilated = cv2.dilate(opened, cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3)), iterations = 2)
+    _, contour, hier = cv2.findContours(th, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if len(contour)>800:
+        print("Frame "+str(i-1)+" Too many small contours with "+str(len(contour)))
+        return True, []
+    # Distroy Small Noise
+    opened = cv2.morphologyEx(th, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5,5)))
+    dilated = cv2.dilate(opened, cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(5,5)), iterations = 2)
     # Discard if all black
     if len(np.nonzero(dilated)[0]) == 0:
         print("Frame "+str(i-1)+" no bubble")
@@ -401,15 +412,30 @@ def nooverlap(camera, window):
     # Refine Mask Individually
     bubble_area = []
     for index,c in enumerate(contour):
+        flag = 0
         (x,y,w,h) = cv2.boundingRect(c)
         bubble = gray[y:y+h,x:x+w]
         bubble_inv = np.bitwise_not(bubble)
-        bubble_th = cv2.threshold(bubble_inv,220,255,cv2.THRESH_BINARY)[1]
+        bubble_th = cv2.threshold(bubble_inv,200,255,cv2.THRESH_BINARY)[1]
         smooth = cv2.morphologyEx(bubble_th, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3,3)))
-        if len(np.nonzero(smooth)[0]) > 0:
+        smooth_inv = np.bitwise_not(smooth)
+        # evaluate the "squareness" of the shape
+        [sa, sb] = bubble.shape[:2]
+        if sa > sb:
+            sindex = sa/sb
+        else:
+            sindex = sb/sa
+        effectiveindex = len(np.nonzero(smooth_inv)[0])/(len(np.nonzero(smooth)[0])+1)
+
+        if len(np.nonzero(smooth)[0]) > 0 and len(np.nonzero(smooth_inv)[0]) > 0 and smooth.size < 600 and sindex < 1.5 and effectiveindex > 1.8:
             cv2.rectangle(frame,(x,y),(x+w,y+h),(255,255,0),2)
-            # cv2.imwrite(str(i)+str(index)+'bubble.png',bubble)
-            bubble_area.extend([len(np.nonzero(smooth)[0])])
+            cv2.imwrite(str(i)+str(index)+'bubble.png',bubble)
+            bubble_area.extend([1.5/8*(sa+sb)/2])
+            flag = 1
+    ################  SAVE FOR DEBUG   #############
+    cv2.imwrite(str(i)+'mask'+str(flag)+'.png',mask)
+    cv2.imwrite(str(i)+'gray'+str(flag)+'.png',gray)
+    ###################################################
     cv2.imshow('frame',frame)
     return True, bubble_area
 
@@ -449,7 +475,7 @@ def clear():
 
 if __name__=='__main__':
     bs = cv2.createBackgroundSubtractorKNN(history=10, dist2Threshold=400,detectShadows = True)
-    bss = cv2.createBackgroundSubtractorKNN(history=20, dist2Threshold=3000, detectShadows = True)
+    bss = cv2.createBackgroundSubtractorKNN(history=30, dist2Threshold=8000, detectShadows = True)
     root =tkinter.Tk()
     root.geometry('200x200+100+100')
     root.resizable(width=True, height=True)
