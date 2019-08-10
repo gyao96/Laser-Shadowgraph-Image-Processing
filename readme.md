@@ -16,6 +16,7 @@ The team at our lab has developed some sort of PA lens that can generate and foc
 - Morphological Operations - Polishing the mask frame
 - Overlapping detection - Using algorithm explained in the report
 - Count and plot the result
+
 [ ###### Download our report ](Resources/Laser_Shadowgraphy_Image_and_Ultrasound_Signal_Feature_Extraction.pdf)
 
 ## Result
@@ -44,4 +45,4 @@ Hit the button and pick up a video file to run.
 Then select the region where there could be bubbles.
 When finished, result will be shown as a histograph.
 
-<form action="http://formspree.io/gyao961@gmail.com"><input type="email" name="_replyto"><textarea   name="body"></textarea><input type="submit" value="Send"></form>
+<a href="mailto:gyao961@gmail.com">Email me</a>
