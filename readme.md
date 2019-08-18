@@ -19,7 +19,7 @@ The team at our lab has developed some sort of PA lens that can generate and foc
 - Overlapping detection - Using algorithm explained in the report
 - Count and plot the result
 
-[###### Download our report](Resources/Laser_Shadowgraphy_Image_and_Ultrasound_Signal_Feature_Extraction.pdf)
+###### [Download our report](Resources/Laser_Shadowgraphy_Image_and_Ultrasound_Signal_Feature_Extraction.pdf)
 
 ## Result
 Demonstration of capturing bubbles
